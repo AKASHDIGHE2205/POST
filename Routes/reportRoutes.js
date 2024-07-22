@@ -1,7 +1,3 @@
-import PDFDocument from 'pdfkit';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 import express from "express"
 import db from "../db.js"
 const router = express.Router();

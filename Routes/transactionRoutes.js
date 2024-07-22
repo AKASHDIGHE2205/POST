@@ -246,4 +246,54 @@ router.get("/getAllVoucherEntry", (req, res) => {
   });
 });
 
+//Api to View all OUtward details entry
+router.post("/getAllOutwardDetails", (req, res) => {
+  const { from_date, to_date, firm_id } = req.body;
+
+  console.log(from_date, to_date, firm_id);
+
+  if (!from_date || !to_date) {
+    return res.status(400).json({ message: "Missing required query parameters: from_date and to_date" });
+  }
+
+  let sql = `
+    SELECT 
+      a.entry_id, 
+      a.entry_date, 
+      e.post_name AS post_type, 
+      c.firm_name, 
+      b.dept_name, 
+      a.party_name, 
+      a.city_name, 
+      a.remark, 
+      a.qty, 
+      a.fr_machine, 
+      a.charges, 
+      a.rec_no, 
+      a.rec_date 
+    FROM 
+      post_entry AS a 
+      JOIN dept AS b ON a.dept_id = b.dept_id 
+      JOIN firms AS c ON a.firm_id = c.firm_id 
+      JOIN post_type AS e ON a.post_type = e.post_id 
+    WHERE 
+      a.entry_date BETWEEN ? AND ? 
+      AND a.flag = 'O' `;
+
+  const params = [from_date, to_date];
+
+  if (firm_id !== '0') {
+    sql += ` AND a.firm_id = ?`;
+    params.push(firm_id);
+  }
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error retrieving outward details:", err);
+      return res.status(500).json({ message: "Something went wrong", details: err });
+    }
+    return res.status(200).json(results);
+  });
+});
+
 export default router; 
