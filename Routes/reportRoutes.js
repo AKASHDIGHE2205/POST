@@ -7,31 +7,28 @@ router.use(express.json());// Middleware to parse JSON bodies
 router.post("/getInOutReports", (req, res) => {
   const { from_date, to_date, flag, post_type, firm_id } = req.body;
 
-  // console.log(from_date, to_date, flag, post_type, firm_id);
+  console.log(from_date, to_date, flag, post_type, firm_id);
 
   const sql = `
    SELECT 
       a.entry_id,
+      a.rec_no,
+      a.rec_date,
       a.entry_date,
+      a.party_name,
       a.remark,
       a.receipt_no,
       a.qty,
       a.flag,
-      a.fr_machine,
       a.charges,
-      a.firm_id,
-      b.firm_name,
-      a.dept_id,
       c.dept_name,
-      d.city_name
+      a.city_name
     FROM 
       post_entry AS a
     JOIN 
       firms AS b ON a.firm_id = b.firm_id
     JOIN 
       dept AS c ON a.dept_id = c.dept_id
-      JOIN 
-      cities AS d ON a.city_name = d.city_id
     WHERE 
       a.entry_date BETWEEN ? AND ?
       AND a.flag = ?
@@ -45,6 +42,5 @@ router.post("/getInOutReports", (req, res) => {
     return res.status(200).json(results);
   });
 });
-
 
 export default router;

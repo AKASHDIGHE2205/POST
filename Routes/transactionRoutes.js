@@ -71,7 +71,7 @@ router.post("/newEntry", (req, res) => {
 
 });
 
-//Api to get All Party Details For Entry Modal view
+// //Api to get All Party Details For Entry Modal view
 router.get("/getPartyNames", (req, res) => {
   const sql = `
     SELECT a.party_id, a.party_name, b.city_name,a.party_city
@@ -97,20 +97,19 @@ router.get("/getAllInEntry", (req, res) => {
       e.post_name,
       b.dept_name,
       c.firm_name,
-      d.city_name,
+      a.party_name,
+      a.city_name,
       a.remark,
       a.receipt_no,
       a.qty,
       a.flag
     FROM 
       post_entry AS a
-    JOIN 
+    LEFT JOIN 
       dept AS b ON a.dept_id = b.dept_id
-    JOIN 
+    LEFT JOIN 
       firms AS c ON a.firm_id = c.firm_id
-    JOIN 
-      cities AS d ON a.city_name = d.city_id
-    JOIN 
+    LEFT JOIN 
       post_type AS e ON a.post_type = e.post_id
     WHERE 
       a.flag = 'I'
@@ -131,23 +130,22 @@ router.get("/getAllOutEntry", (req, res) => {
                   a.entry_id,
                   a.entry_date,
                   e.post_name,
+                  a.party_name,
                   b.dept_name,
                   c.firm_name,
-                  d.city_name,
+                  a.city_name,
                   a.remark,
                   a.receipt_no,
                   a.qty,
                   a.flag
-
                FROM 
                   post_entry AS a
-               JOIN 
+               LEFT JOIN 
                   dept AS b ON a.dept_id = b.dept_id
-               JOIN 
+               LEFT JOIN 
                   firms AS c ON a.firm_id = c.firm_id
-               JOIN 
-                  cities AS d ON a.city_name = d.city_id
-               JOIN post_type AS e ON a.post_type = e.post_id
+               LEFT JOIN 
+                  post_type AS e ON a.post_type = e.post_id
                WHERE a.flag = 'O'
                ORDER BY 
                    a.entry_id ASC`;
@@ -296,4 +294,299 @@ router.post("/getAllOutwardDetails", (req, res) => {
   });
 });
 
-export default router; 
+//Api to update the outward details
+router.put("/updateEntry", (req, res) => {
+  const { charges, ret, rec_no, rec_date, entry_id } = req.body;
+
+  console.log(charges, ret, rec_no, rec_date, entry_id);
+
+  if (!entry_id) {
+    return res.status(400).json({ message: "Missing required field: entry_id" });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (charges) {
+    fields.push("charges=?");
+    values.push(charges);
+  }
+  if (ret) {
+    fields.push("ret=?");
+    values.push(ret);
+  }
+  if (rec_no) {
+    fields.push("rec_no=?");
+    values.push(rec_no);
+  }
+  if (rec_date) {
+    fields.push("rec_date=?");
+    values.push(rec_date);
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+
+  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id=?`;
+  values.push(entry_id);
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      console.error("Error updating entry:", err);
+      return res.status(500).json({ message: "Error updating entry", details: err });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Entry not found" });
+    }
+    return res.status(200).json({ message: "Entry updated successfully", details: results });
+  });
+});
+
+//Api to update Inward Or Outward Entry
+router.put("/updateInEntry", (req, res) => {
+  const { entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id } = req.body;
+
+  // console.log(entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id);
+
+  if (!entry_id) {
+    return res.status(400).json({ message: "Missing required field: entry_id" });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (entry_date && entry_date !== '') {
+    fields.push("entry_date = ?");
+    values.push(entry_date);
+  }
+  if (post_type && post_type !== '') {
+    fields.push("post_type = ?");
+    values.push(post_type);
+  }
+  if (dept_id && dept_id !== '' && dept_id !== '0') {
+    fields.push("dept_id = ?");
+    values.push(dept_id);
+  }
+  if (firm_id && firm_id !== '' && firm_id !== '0') {
+    fields.push("firm_id = ?");
+    values.push(firm_id);
+  }
+  if (party_name && party_name !== '') {
+    fields.push("party_name = ?");
+    values.push(party_name);
+  }
+  if (city_name && city_name !== '') {
+    fields.push("city_name = ?");
+    values.push(city_name);
+  }
+  if (remark && remark !== '') {
+    fields.push("remark = ?");
+    values.push(remark);
+  }
+  if (receipt_no && receipt_no !== '') {
+    fields.push("receipt_no = ?");
+    values.push(receipt_no);
+  }
+  if (qty && qty !== '' && qty !== '0') {
+    fields.push("qty = ?");
+    values.push(qty);
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ message: "No fields to update", details: err });
+  }
+
+  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id = ?`;
+  values.push(entry_id);
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      console.error("Error updating entry:", err);
+      return res.status(500).json({ message: "Error updating entry", details: err });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Entry not found", details: err });
+    }
+    return res.status(200).json({ message: "Entry updated successfully", details: results });
+  });
+});
+
+//Api to update the Inward Details
+router.put("/updateOutEntry", (req, res) => {
+  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name, entry_id } = req.body;
+
+  console.log(entry_id, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name);
+
+  if (!entry_id) {
+    return res.status(400).json({ message: "Missing required field: entry_id" });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (entry_date && entry_date !== '') {
+    fields.push("entry_date = ?");
+    values.push(entry_date);
+  }
+  if (post_type && post_type !== '') {
+    fields.push("post_type = ?");
+    values.push(post_type);
+  }
+  if (dept_id && dept_id !== '' && dept_id !== '0') {
+    fields.push("dept_id = ?");
+    values.push(dept_id);
+  }
+  if (firm_id && firm_id !== '' && firm_id !== '0') {
+    fields.push("firm_id = ?");
+    values.push(firm_id);
+  }
+  if (party_name && party_name !== '') {
+    fields.push("party_name = ?");
+    values.push(party_name);
+  }
+  if (city_name && city_name !== '') {
+    fields.push("city_name = ?");
+    values.push(city_name);
+  }
+  if (remark && remark !== '') {
+    fields.push("remark = ?");
+    values.push(remark);
+  }
+  if (receipt_no && receipt_no !== '') {
+    fields.push("receipt_no = ?");
+    values.push(receipt_no);
+  }
+  if (qty && qty !== '' && qty !== '0') {
+    fields.push("qty = ?");
+    values.push(qty);
+  }
+  if (charges && charges !== '' && charges !== 0) {
+    fields.push("charges = ?");
+    values.push(charges);
+  }
+  if (fr_machine && fr_machine !== '' && fr_machine !== 0) {
+    fields.push("fr_machine = ?");
+    values.push(fr_machine);
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+
+  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id = ?`;
+  values.push(entry_id);
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      console.error("Error updating entry:", err);
+      return res.status(500).json({ message: "Error updating entry", details: err });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Entry not found" });
+    }
+    return res.status(200).json({ message: "Entry update successful", details: results });
+  });
+});
+
+//Api to Add new department
+router.post("/newDept", (req, res) => {
+  const { dept_name } = req.body;
+
+  if (!dept_name) {
+    return res.status(400).json({ message: "Department name is required" });
+  }
+
+  const sql = `INSERT INTO dept (dept_name) VALUES (?)`;
+
+  db.query(sql, [dept_name], (err, results) => {
+    if (err) {
+      console.error("Error inserting department:", err);
+      return res.status(500).json({ message: "Error inserting department", details: err });
+    }
+    return res.status(200).json({ message: "New Department Added...!", details: results });
+  });
+});
+
+//Api to Add new Post Type
+router.post("/newPostType", (req, res) => {
+  const { post_name } = req.body;
+
+  // Validate the input
+  if (!post_name) {
+    return res.status(400).json({ message: "Post name is required" });
+  }
+
+  const sql = `INSERT INTO post_type (post_name) VALUES (?)`;
+
+  db.query(sql, [post_name], (err, results) => {
+    if (err) {
+      console.error("Error inserting post type:", err);
+      return res.status(500).json({ message: "Error inserting post type", details: err });
+    }
+    return res.status(200).json({ message: "New Post Type Added!", details: results });
+  });
+});
+
+//Apt to update the stamp entry
+router.put("/updateStampEntry", (req, res) => {
+  const { pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark, stamp_id } = req.body;
+
+  console.log(pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark, stamp_id);
+
+  if (!stamp_id) {
+    return res.status(400).json({ message: "Missing required field: stamp_id" });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (pur_date && pur_date !== '') {
+    fields.push("pur_date = ?");
+    values.push(pur_date);
+  }
+  if (firm_name && firm_name !== '') {
+    fields.push("firm_name = ?");
+    values.push(firm_name);
+  }
+  if (rec_no && rec_no !== '' && rec_no !== '0') {
+    fields.push("rec_no = ?");
+    values.push(rec_no);
+  }
+  if (pay_date && pay_date !== '') {
+    fields.push("pay_date = ?");
+    values.push(pay_date);
+  }
+  if (stamp && stamp !== '' && stamp !== 0) {
+    fields.push("stamp = ?");
+    values.push(stamp);
+  }
+  if (fr_machine && fr_machine !== '' && fr_machine !== 0) {
+    fields.push("fr_machine = ?");
+    values.push(fr_machine);
+  }
+  if (remark && remark !== '') {
+    fields.push("remark = ?");
+    values.push(remark);
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+
+  const sql = `UPDATE stamp_pur SET ${fields.join(", ")} WHERE stamp_id = ?`;
+  values.push(stamp_id);
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      console.error("Error updating stamp entry:", err);
+      return res.status(500).json({ message: "Error updating stamp entry", details: err });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Stamp entry not found" });
+    }
+    return res.status(200).json({ message: "Stamp Entry Update Successful", details: results });
+  });
+});
+
+export default router;
