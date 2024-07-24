@@ -589,4 +589,127 @@ router.put("/updateStampEntry", (req, res) => {
   });
 });
 
+//Api to update the voucher entry
+router.put("/updateVEntry", (req, res) => {
+  const { v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark, v_no } = req.body;
+  // console.log("V Date:-", v_date, "receipt No:-", receipt_no, "Paid Date:-", paid_date, "firm Name:-", firm_name, "Stamp:-", stamp, "Fr Machine:-", fr_machine, "Remark", remark, "v No:-", v_no);
+
+  if (!v_no) {
+    return res.status(400).json({ message: "Missing required field: v_no" });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (v_date && v_date !== '') {
+    fields.push("v_date = ?");
+    values.push(v_date);
+  }
+  if (receipt_no && receipt_no !== '' && receipt_no !== '0') {
+    fields.push("receipt_no = ?");
+    values.push(receipt_no);
+  }
+  if (paid_date && paid_date !== '') {
+    fields.push("paid_date = ?");
+    values.push(paid_date);
+  }
+  if (firm_name && firm_name !== '' && firm_name !== '0') {
+    fields.push("firm_name = ?");
+    values.push(firm_name);
+  }
+  if (stamp && stamp !== '0') {
+    fields.push("stamp = ?");
+    values.push(stamp);
+  }
+  if (fr_machine && fr_machine !== '') {
+    fields.push("fr_machine = ?");
+    values.push(fr_machine);
+  }
+  if (remark && remark !== '') {
+    fields.push("remark = ?");
+    values.push(remark);
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+
+  const sql = `UPDATE voucher_entry SET ${fields.join(", ")} WHERE v_no = ?`;
+  values.push(v_no);
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error updating entry", details: err });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Entry not found" });
+    }
+    return res.status(200).json({ message: "Entry updated successfully!", details: results });
+  });
+});
+
+//Api to view all Type/Department/Firm
+router.post("/viewGroup", (req, res) => {
+  const { Group } = req.body;
+  // console.log(Group);
+
+  if (!Group) {
+    return res.status(400).json({ message: "Group parameter is required" });
+  }
+
+  let sql;
+  switch (Group) {
+    case 'D':
+      sql = `SELECT dept_id AS id ,dept_name AS name FROM dept`;
+      break;
+    case 'F':
+      sql = `SELECT firm_id AS id ,firm_name AS name FROM firms`;
+      break;
+    case 'T':
+      sql = `SELECT post_id AS id,post_name AS name  FROM post_type`;
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid Group parameter" });
+  }
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Error retrieving data", details: err });
+    }
+    return res.status(200).json(results);
+  });
+});
+
+//Api to create New Type/Department/Firm
+router.post("/newGroup", (req, res) => {
+  const { Group, name } = req.body;
+  console.log(Group, name);
+
+  if (!Group || !name) {
+    return res.status(400).json({ message: "Group and name parameters are required" });
+  }
+
+  let sql;
+  switch (Group) {
+    case 'D':
+      sql = `INSERT INTO dept (dept_name) VALUES (?)`;
+      break;
+    case 'F':
+      sql = `INSERT INTO firms (firm_name) VALUES (?)`;
+      break;
+    case 'T':
+      sql = `INSERT INTO post_type (post_name) VALUES (?)`;
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid Group parameter" });
+  }
+  db.query(sql, [name], (err, results) => {
+    if (err) {
+      console.error("Error inserting group:", err);
+      return res.status(500).json({ message: "Error inserting group", details: err });
+    }
+    return res.status(200).json({ message: "Group created successfully!", details: results });
+  });
+});
+
 export default router;

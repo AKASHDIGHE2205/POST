@@ -7,7 +7,7 @@ router.use(express.json());// Middleware to parse JSON bodies
 router.post("/getInOutReports", (req, res) => {
   const { from_date, to_date, flag, post_type, firm_id } = req.body;
 
-  console.log(from_date, to_date, flag, post_type, firm_id);
+  // console.log(from_date, to_date, flag, post_type, firm_id);
 
   const sql = `
    SELECT 
