@@ -1,4 +1,4 @@
-import express from "express";
+import express, { json } from "express";
 import db from "../db.js";
 const router = express.Router();
 router.use(express.json());// Middleware to parse JSON bodies
@@ -71,23 +71,6 @@ router.post("/newEntry", (req, res) => {
 
 });
 
-// //Api to get All Party Details For Entry Modal view
-router.get("/getPartyNames", (req, res) => {
-  const sql = `
-    SELECT a.party_id, a.party_name, b.city_name,a.party_city
-    FROM party_names AS a
-    JOIN cities AS b ON a.party_city = b.city_id
-  `;
-
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error("Error retrieving party names:", err);
-      return res.status(500).json({ message: "Failed to retrieve party names", error: err });
-    }
-    return res.status(200).json(results);
-  });
-});
-
 //API tO VIEW ALL INWARD ENTRY
 router.get("/getAllInEntry", (req, res) => {
   const sql = `
@@ -124,226 +107,7 @@ router.get("/getAllInEntry", (req, res) => {
   });
 });
 
-//API TO VIEW ALL OUTWARD ENTRY
-router.get("/getAllOutEntry", (req, res) => {
-  const sql = `SELECT 
-                  a.entry_id,
-                  a.entry_date,
-                  e.post_name,
-                  a.party_name,
-                  b.dept_name,
-                  c.firm_name,
-                  a.city_name,
-                  a.remark,
-                  a.receipt_no,
-                  a.qty,
-                  a.flag
-               FROM 
-                  post_entry AS a
-               LEFT JOIN 
-                  dept AS b ON a.dept_id = b.dept_id
-               LEFT JOIN 
-                  firms AS c ON a.firm_id = c.firm_id
-               LEFT JOIN 
-                  post_type AS e ON a.post_type = e.post_id
-               WHERE a.flag = 'O'
-               ORDER BY 
-                   a.entry_id ASC`;
-
-  db.query(sql, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Something went wrong", details: err });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-//Api to create Outward post Entry
-router.post("/newOutEntry", (req, res) => {
-  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name } = req.body;
-
-  console.log("Entry Date:", entry_date, "Post Type:", post_type, "Dept Id:", dept_id, "Firm Id:", firm_id, "City Name:", city_name, "Remark:", remark, "Receipt No:", receipt_no, "Quantity:", qty, "Flag:", flag, "charges:", charges, "fr_machine:", fr_machine, "Party NAme", party_name);
-
-  const sql = `
-    INSERT INTO post_entry 
-    (entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine,party_name) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
-
-  db.query(sql, [entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name], (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Something went wrong", err: err });
-    }
-    return res.status(201).json({ message: "Post Entry Created!" });
-  });
-});
-
-//Api to create new stamp purchase Entry
-router.post("/newStampEntry", (req, res) => {
-  const { pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark } = req.body;
-
-  console.log(pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark);
-
-  const sql = `
-    INSERT INTO stamp_pur 
-    (pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-  db.query(sql, [pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark], (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Something went wrong", details: err });
-    }
-    return res.status(201).json({ message: "Stamp entry created successfully!" });
-  });
-});
-
-//Api To create new voucher Entry
-router.post("/newVoucherEntry", (req, res) => {
-  const { v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark } = req.body;
-
-  console.log(v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark);
-
-  const sql = `
-    INSERT INTO voucher_entry 
-    (v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-  db.query(sql, [v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark], (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Something went wrong", details: err });
-    }
-    return res.status(201).json({ message: "Voucher entry created successfully!" });
-  });
-
-});
-
-//Api To View all Stam Entries
-router.get("/getAllStampEntry", (req, res) => {
-  const sql = `SELECT a.pur_date,a.stamp_id,b.firm_name,a.rec_no,a.pay_date,a.stamp,a.fr_machine,a.remark
-               FROM stamp_pur AS a
-               JOIN firms AS b ON a.firm_name = b.firm_id`;
-  db.query(sql, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Something went wrong", details: err });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-//Api to View All Vocuher entry
-router.get("/getAllVoucherEntry", (req, res) => {
-
-  const sql = `
-          SELECT a.v_no,a.v_date,a.receipt_no,a.paid_date,a.stamp,a.fr_machine,a.remark,a.firm_name as firm_id,b.firm_name
-          FROM voucher_entry AS a
-          JOIN firms AS b ON a.firm_name=b.firm_id`;
-  db.query(sql, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Something went wrong", details: err });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-//Api to View all OUtward details entry
-router.post("/getAllOutwardDetails", (req, res) => {
-  const { from_date, to_date, firm_id } = req.body;
-
-  console.log(from_date, to_date, firm_id);
-
-  if (!from_date || !to_date) {
-    return res.status(400).json({ message: "Missing required query parameters: from_date and to_date" });
-  }
-
-  let sql = `
-    SELECT 
-      a.entry_id, 
-      a.entry_date, 
-      e.post_name AS post_type, 
-      c.firm_name, 
-      b.dept_name, 
-      a.party_name, 
-      a.city_name, 
-      a.remark, 
-      a.qty, 
-      a.fr_machine, 
-      a.charges, 
-      a.rec_no, 
-      a.rec_date 
-    FROM 
-      post_entry AS a 
-      JOIN dept AS b ON a.dept_id = b.dept_id 
-      JOIN firms AS c ON a.firm_id = c.firm_id 
-      JOIN post_type AS e ON a.post_type = e.post_id 
-    WHERE 
-      a.entry_date BETWEEN ? AND ? 
-      AND a.flag = 'O' `;
-
-  const params = [from_date, to_date];
-
-  if (firm_id !== '0') {
-    sql += ` AND a.firm_id = ?`;
-    params.push(firm_id);
-  }
-
-  db.query(sql, params, (err, results) => {
-    if (err) {
-      console.error("Error retrieving outward details:", err);
-      return res.status(500).json({ message: "Something went wrong", details: err });
-    }
-    return res.status(200).json(results);
-  });
-});
-
-//Api to update the outward details
-router.put("/updateEntry", (req, res) => {
-  const { charges, ret, rec_no, rec_date, entry_id } = req.body;
-
-  console.log(charges, ret, rec_no, rec_date, entry_id);
-
-  if (!entry_id) {
-    return res.status(400).json({ message: "Missing required field: entry_id" });
-  }
-
-  const fields = [];
-  const values = [];
-
-  if (charges) {
-    fields.push("charges=?");
-    values.push(charges);
-  }
-  if (ret) {
-    fields.push("ret=?");
-    values.push(ret);
-  }
-  if (rec_no) {
-    fields.push("rec_no=?");
-    values.push(rec_no);
-  }
-  if (rec_date) {
-    fields.push("rec_date=?");
-    values.push(rec_date);
-  }
-
-  if (fields.length === 0) {
-    return res.status(400).json({ message: "No fields to update" });
-  }
-
-  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id=?`;
-  values.push(entry_id);
-
-  db.query(sql, values, (err, results) => {
-    if (err) {
-      console.error("Error updating entry:", err);
-      return res.status(500).json({ message: "Error updating entry", details: err });
-    }
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ message: "Entry not found" });
-    }
-    return res.status(200).json({ message: "Entry updated successfully", details: results });
-  });
-});
-
-//Api to update Inward Or Outward Entry
+//Api to update Inward Entry
 router.put("/updateInEntry", (req, res) => {
   const { entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id } = req.body;
 
@@ -412,11 +176,90 @@ router.put("/updateInEntry", (req, res) => {
   });
 });
 
-//Api to update the Inward Details
+//Api to delete InEntry as well OutEntry
+router.delete("/delInOutEntry/:id", (req, res) => {
+  const { id: entry_id } = req.params;
+
+  // console.log(entry_id);
+
+  if (!entry_id) {
+    return res.status(400).json({ message: "Missing required field: entry_id" });
+  }
+
+  const sql = `DELETE FROM post_entry WHERE entry_id = ?`;
+
+  db.query(sql, [entry_id], (err, results) => {
+    if (err) {
+      console.error("Error deleting entry:", err);
+      return res.status(500).json({ message: "Error deleting entry", details: err });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Entry not found" });
+    }
+
+    return res.status(200).json({ message: `EntryNo ${entry_id} deleted successfully`, details: results });
+  });
+});
+
+//API TO VIEW ALL OUTWARD ENTRY
+router.get("/getAllOutEntry", (req, res) => {
+  const sql = `SELECT 
+                  a.entry_id,
+                  a.entry_date,
+                  e.post_name,
+                  a.party_name,
+                  b.dept_name,
+                  c.firm_name,
+                  a.city_name,
+                  a.remark,
+                  a.receipt_no,
+                  a.qty,
+                  a.flag
+               FROM 
+                  post_entry AS a
+               LEFT JOIN 
+                  dept AS b ON a.dept_id = b.dept_id
+               LEFT JOIN 
+                  firms AS c ON a.firm_id = c.firm_id
+               LEFT JOIN 
+                  post_type AS e ON a.post_type = e.post_id
+               WHERE a.flag = 'O'
+               ORDER BY 
+                   a.entry_id ASC`;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Something went wrong", details: err });
+    }
+    return res.status(200).json(results);
+  });
+});
+
+//Api to create Outward post Entry
+router.post("/newOutEntry", (req, res) => {
+  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name } = req.body;
+
+  // console.log("Entry Date:", entry_date, "Post Type:", post_type, "Dept Id:", dept_id, "Firm Id:", firm_id, "City Name:", city_name, "Remark:", remark, "Receipt No:", receipt_no, "Quantity:", qty, "Flag:", flag, "charges:", charges, "fr_machine:", fr_machine, "Party NAme", party_name);
+
+  const sql = `
+    INSERT INTO post_entry 
+    (entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine,party_name) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
+
+  db.query(sql, [entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Something went wrong", err: err });
+    }
+    return res.status(201).json({ message: "Post Entry Created!" });
+  });
+});
+
+//Api to update the Outward Entry
 router.put("/updateOutEntry", (req, res) => {
   const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name, entry_id } = req.body;
 
-  console.log(entry_id, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name);
+  // console.log(entry_id, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name);
 
   if (!entry_id) {
     return res.status(400).json({ message: "Missing required field: entry_id" });
@@ -489,50 +332,43 @@ router.put("/updateOutEntry", (req, res) => {
   });
 });
 
-//Api to Add new department
-router.post("/newDept", (req, res) => {
-  const { dept_name } = req.body;
+//Api to create new stamp purchase Entry
+router.post("/newStampEntry", (req, res) => {
+  const { pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark } = req.body;
 
-  if (!dept_name) {
-    return res.status(400).json({ message: "Department name is required" });
-  }
+  // console.log(pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark);
 
-  const sql = `INSERT INTO dept (dept_name) VALUES (?)`;
+  const sql = `
+    INSERT INTO stamp_pur 
+    (pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark) 
+    VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
-  db.query(sql, [dept_name], (err, results) => {
+  db.query(sql, [pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark], (err, results) => {
     if (err) {
-      console.error("Error inserting department:", err);
-      return res.status(500).json({ message: "Error inserting department", details: err });
+      return res.status(500).json({ message: "Something went wrong", details: err });
     }
-    return res.status(200).json({ message: "New Department Added...!", details: results });
+    return res.status(201).json({ message: "Stamp entry created successfully!" });
   });
 });
 
-//Api to Add new Post Type
-router.post("/newPostType", (req, res) => {
-  const { post_name } = req.body;
-
-  // Validate the input
-  if (!post_name) {
-    return res.status(400).json({ message: "Post name is required" });
-  }
-
-  const sql = `INSERT INTO post_type (post_name) VALUES (?)`;
-
-  db.query(sql, [post_name], (err, results) => {
+//Api To View all Stam Entries
+router.get("/getAllStampEntry", (req, res) => {
+  const sql = `SELECT a.pur_date,a.stamp_id,b.firm_name,a.rec_no,a.pay_date,a.stamp,a.fr_machine,a.remark
+               FROM stamp_pur AS a
+               JOIN firms AS b ON a.firm_name = b.firm_id`;
+  db.query(sql, (err, results) => {
     if (err) {
-      console.error("Error inserting post type:", err);
-      return res.status(500).json({ message: "Error inserting post type", details: err });
+      return res.status(500).json({ message: "Something went wrong", details: err });
     }
-    return res.status(200).json({ message: "New Post Type Added!", details: results });
+    return res.status(200).json(results);
   });
 });
 
-//Apt to update the stamp entry
+//Api to update the stamp entry
 router.put("/updateStampEntry", (req, res) => {
   const { pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark, stamp_id } = req.body;
 
-  console.log(pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark, stamp_id);
+  // console.log(pur_date, firm_name, rec_no, pay_date, stamp, fr_machine, remark, stamp_id);
 
   if (!stamp_id) {
     return res.status(400).json({ message: "Missing required field: stamp_id" });
@@ -586,6 +422,56 @@ router.put("/updateStampEntry", (req, res) => {
       return res.status(404).json({ message: "Stamp entry not found" });
     }
     return res.status(200).json({ message: "Stamp Entry Update Successful", details: results });
+  });
+});
+
+//Api to delete stamp Entry
+router.delete("/delStampEntry/:id", (req, res) => {
+  const { id: stamp_id } = req.body;
+
+  if (!stamp_id) {
+    return res.status(400).json({ message: "Missing required field: stamp_id" });
+  }
+  const sql = `DELETE FROM stamp_pur WHERE stamp_id =?`;
+
+  db.query(sql, [stamp_id], (req, res) => {
+    return res.status(500).json({ message: "Error to delete Stamp Entry", details: err })
+  })
+  return res.status(200).json({ message: `Stamp EntryNo ${stamp_id} delete Successsfull`, details: results })
+})
+
+//Api To create new voucher Entry
+router.post("/newVoucherEntry", (req, res) => {
+  const { v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark } = req.body;
+
+  // console.log(v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark);
+
+  const sql = `
+    INSERT INTO voucher_entry 
+    (v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark) 
+    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+  db.query(sql, [v_date, receipt_no, paid_date, firm_name, stamp, fr_machine, remark], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Something went wrong", details: err });
+    }
+    return res.status(201).json({ message: "Voucher entry created successfully!" });
+  });
+
+});
+
+//Api to View All Vocuher entry
+router.get("/getAllVoucherEntry", (req, res) => {
+
+  const sql = `
+          SELECT a.v_no,a.v_date,a.receipt_no,a.paid_date,a.stamp,a.fr_machine,a.remark,a.firm_name as firm_id,b.firm_name
+          FROM voucher_entry AS a
+          JOIN firms AS b ON a.firm_name=b.firm_id`;
+  db.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Something went wrong", details: err });
+    }
+    return res.status(200).json(results);
   });
 });
 
@@ -648,6 +534,165 @@ router.put("/updateVEntry", (req, res) => {
   });
 });
 
+//Api to Delete Voucher Entry
+router.delete("/delVEntry/:id", (req, res) => {
+  const { id: v_no } = req.body;
+
+  if (!v_no) {
+    return res.status(400).json({ message: "Missing required field: voucherNo" })
+  }
+  const sql = `DELETE FROM voucher_entry WHERE v_no =?`;
+
+  db.query(sql, [v_no], (err, results) => {
+    return res.status(500).json({ message: "Error To  Delete Entry", details: err });
+  });
+  return res.status(200).json({ message: `Voucher EntryNo ${v_no} Delete Successfull` });
+});
+
+//Api to View all OUtward details entry
+router.post("/getAllOutwardDetails", (req, res) => {
+  const { from_date, to_date, firm_id } = req.body;
+
+  // console.log(from_date, to_date, firm_id);
+
+  if (!from_date || !to_date) {
+    return res.status(400).json({ message: "Missing required query parameters: from_date and to_date" });
+  }
+
+  let sql = `
+    SELECT 
+      a.entry_id, 
+      a.entry_date, 
+      e.post_name AS post_type, 
+      c.firm_name, 
+      b.dept_name, 
+      a.party_name, 
+      a.city_name, 
+      a.remark, 
+      a.qty, 
+      a.fr_machine, 
+      a.charges, 
+      a.rec_no, 
+      a.rec_date,
+      a.ret 
+    FROM 
+      post_entry AS a 
+      JOIN dept AS b ON a.dept_id = b.dept_id 
+      JOIN firms AS c ON a.firm_id = c.firm_id 
+      JOIN post_type AS e ON a.post_type = e.post_id 
+    WHERE 
+      a.entry_date BETWEEN ? AND ? 
+      AND a.flag = 'O' `;
+
+  const params = [from_date, to_date];
+
+  if (firm_id !== '0') {
+    sql += ` AND a.firm_id = ?`;
+    params.push(firm_id);
+  }
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error retrieving outward details:", err);
+      return res.status(500).json({ message: "Something went wrong", details: err });
+    }
+    return res.status(200).json(results);
+  });
+});
+
+//Api to update outward Details entry
+router.put("/updateOutwardDetails", (req, res) => {
+  const { data } = req.body;
+
+  // console.log(data);
+
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return res.status(400).json({ message: "Invalid data provided" });
+  }
+
+  const updates = data.map(item => ({
+    entry_id: item.entry_id,
+    charges: item.charges,
+    rec_no: item.rec_no
+  }));
+
+  let errors = [];
+  let successfulUpdates = 0;
+
+  updates.forEach((update, index) => {
+    const sql = `UPDATE post_entry SET charges = ?, rec_no = ? WHERE entry_id = ?`;
+
+    db.query(sql, [update.charges, update.rec_no, update.entry_id], (err, results) => {
+      if (err) {
+        errors.push({ update, err });
+      } else {
+        successfulUpdates++;
+      }
+
+      // Send response after all queries are processed
+      if (index === updates.length - 1) {
+        if (errors.length > 0) {
+          console.error("Errors updating entries:", errors);
+          return res.status(500).json({ message: "Error updating entries", details: errors });
+        } else {
+          return res.status(200).json({
+            message: "Entries updated successfully", details: successfulUpdates
+          });
+        }
+      }
+    });
+  });
+});
+
+//Api to update the outward details
+router.put("/updateEntry", (req, res) => {
+  const { charges, ret, rec_no, rec_date, entry_id } = req.body;
+
+  // console.log(charges, ret, rec_no, rec_date, entry_id);
+
+  if (!entry_id) {
+    return res.status(400).json({ message: "Missing required field: entry_id" });
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (charges) {
+    fields.push("charges=?");
+    values.push(charges);
+  }
+  if (ret) {
+    fields.push("ret=?");
+    values.push(ret);
+  }
+  if (rec_no) {
+    fields.push("rec_no=?");
+    values.push(rec_no);
+  }
+  if (rec_date) {
+    fields.push("rec_date=?");
+    values.push(rec_date);
+  }
+
+  if (fields.length === 0) {
+    return res.status(400).json({ message: "No fields to update" });
+  }
+
+  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id=?`;
+  values.push(entry_id);
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      console.error("Error updating entry:", err);
+      return res.status(500).json({ message: "Error updating entry", details: err });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "Entry not found" });
+    }
+    return res.status(200).json({ message: "Entry updated successfully", details: results });
+  });
+});
+
 //Api to view all Type/Department/Firm
 router.post("/viewGroup", (req, res) => {
   const { Group } = req.body;
@@ -683,7 +728,7 @@ router.post("/viewGroup", (req, res) => {
 //Api to create New Type/Department/Firm
 router.post("/newGroup", (req, res) => {
   const { Group, name } = req.body;
-  console.log(Group, name);
+  // console.log(Group, name);
 
   if (!Group || !name) {
     return res.status(400).json({ message: "Group and name parameters are required" });
