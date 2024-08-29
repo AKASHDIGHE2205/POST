@@ -43,7 +43,8 @@ router.post('/log-in', (req, res) => {
         email: user.email_id,
         firstName: user.first_name,
         lastName: user.last_name,
-        role: user.user_role
+        role: user.user_role,
+        loc_id: user.loc_id
       };
 
       // Check if user is an admin (example based on email domain or specific emails)
@@ -62,7 +63,8 @@ router.post('/log-in', (req, res) => {
         role: userData.role,
         firstName: userData.firstName,
         lastName: userData.lastName,
-        email: userData.email
+        email: userData.email,
+        loc_id: userData.loc_id
       });
 
     } catch (error) {

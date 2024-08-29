@@ -5,7 +5,7 @@ router.use(express.json());// Middleware to parse JSON bodies
 
 //Api to get All Dept's for Entry modal view
 router.get("/getDepts", (req, res) => {
-  const sql = `SELECT dept_id, dept_name FROM dept`;
+  const sql = `SELECT dept_id, dept_name FROM dept WHERE status='A'`;
 
   // Execute the SQL query
   db.query(sql, (err, results) => {
@@ -27,7 +27,7 @@ router.get("/getDepts", (req, res) => {
 
 //Api to get All post Types for Entry modal view
 router.get("/getPTypes", (req, res) => {
-  const sql = `SELECT post_id, post_name FROM post_type `;
+  const sql = `SELECT post_id, post_name FROM post_type WHERE status='A'`;
 
   db.query(sql, (err, results) => {
     if (err) {
@@ -40,7 +40,7 @@ router.get("/getPTypes", (req, res) => {
 
 //Api to get All Firms For Entry Modal view
 router.get("/getFirms", (req, res) => {
-  const sql = `SELECT firm_id, firm_name FROM firms`;
+  const sql = `SELECT firm_id, firm_name FROM firms WHERE status='A'`;
 
   db.query(sql, (err, results) => {
     if (err) {
@@ -51,32 +51,58 @@ router.get("/getFirms", (req, res) => {
   });
 });
 
+
+
+
+
 //Api to create Inward post Entry
-router.post("/newEntry", (req, res) => {
-  const { entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, flag } = req.body;
+router.post('/newEntry', (req, res) => {
+  const { entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, flag, status, c_by, loc_id } = req.body;
 
-  // console.log("Entry Date:", entry_date, "Post Type:", post_type, "Name:", party_name, "Dept Id:", dept_id, "Firm Id:", firm_id, "City Name:", city_name, "Remark:", remark, "Receipt No:", receipt_no, "Quantity:", qty, "Flag:", flag);
+  if (!entry_date || !post_type || !dept_id || !firm_id || !loc_id) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
 
-  const sql = `
-    INSERT INTO post_entry 
-    (entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, flag) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?) `;
+  const currentDateTime = new Date();
 
-  db.query(sql, [entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, flag], (err, results) => {
+  const getMaxEntryIdSql = `
+    SELECT MAX(entry_id) AS max_entry_id
+    FROM post_entry
+    WHERE entry_date = ? AND flag = 'I' AND status = 'A' AND loc_id = ?`;
+
+  db.query(getMaxEntryIdSql, [entry_date, loc_id], (err, results) => {
     if (err) {
-      return res.status(500).json({ message: "Something went wrong", err: err });
+      return res.status(500).json({ message: "Error fetching max entry_id", error: err });
     }
-    return res.status(201).json({ message: "Post Entry Created!" });
-  });
 
+    const maxEntryId = results[0]?.max_entry_id || 0;
+    const newEntryId = maxEntryId + 1;
+
+    const insertSql = `
+      INSERT INTO post_entry 
+      (entry_id, entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, flag, status, loc_id  , c_by, c_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    db.query(insertSql, [newEntryId, entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, flag, status, loc_id, c_by, currentDateTime], (err, results) => {
+      if (err) {
+        console.log(err);
+        return res.status(500).json({ message: "Something went wrong", error: err });
+      }
+      return res.status(201).json({ message: `Post Entry Created with Entry ID: ${newEntryId}` });
+    });
+  });
 });
 
+
 //API tO VIEW ALL INWARD ENTRY
-router.get("/getAllInEntry", (req, res) => {
+router.post("/getAllInEntry", (req, res) => {
+  const { entry_date, loc_id } = req.body;
+  // console.log(entry_date, loc_id);
+
   const sql = `
     SELECT 
       a.entry_id,
-      a.entry_date,
+      a.entry_date, 
       e.post_name,
       b.dept_name,
       c.firm_name,
@@ -94,12 +120,15 @@ router.get("/getAllInEntry", (req, res) => {
       firms AS c ON a.firm_id = c.firm_id
     LEFT JOIN 
       post_type AS e ON a.post_type = e.post_id
-    WHERE 
-      a.flag = 'I'
+    WHERE
+      a.flag = 'I' AND
+      a.entry_date = ? AND
+      a.status ='A' AND
+      a.loc_id = ?
     ORDER BY
       a.entry_id ASC`;
 
-  db.query(sql, (err, results) => {
+  db.query(sql, [entry_date, loc_id], (err, results) => {
     if (err) {
       return res.status(500).json({ message: "Something went wrong", details: err });
     }
@@ -107,11 +136,12 @@ router.get("/getAllInEntry", (req, res) => {
   });
 });
 
+
 //Api to update Inward Entry
 router.put("/updateInEntry", (req, res) => {
-  const { entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id } = req.body;
+  const { entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id, flag, loc_id } = req.body;
 
-  // console.log(entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id);
+  console.log(entry_date, post_type, dept_id, firm_id, party_name, city_name, remark, receipt_no, qty, entry_id, loc_id);
 
   if (!entry_id) {
     return res.status(400).json({ message: "Missing required field: entry_id" });
@@ -161,8 +191,8 @@ router.put("/updateInEntry", (req, res) => {
     return res.status(400).json({ message: "No fields to update", details: err });
   }
 
-  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id = ?`;
-  values.push(entry_id);
+  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id = ? AND entry_date = ? AND flag = ? AND loc_id = ?`;
+  values.push(entry_id, entry_date, flag, loc_id);
 
   db.query(sql, values, (err, results) => {
     if (err) {
@@ -176,19 +206,22 @@ router.put("/updateInEntry", (req, res) => {
   });
 });
 
-//Api to delete InEntry as well OutEntry
-router.delete("/delInOutEntry/:id", (req, res) => {
-  const { id: entry_id } = req.params;
 
-  // console.log(entry_id);
+
+//Api to delete InEntry & OutEntry
+router.put("/delInOutEntry", (req, res) => {
+  const { entry_date, entry_id, flag, status, loc_id } = req.body;
+  // console.log(entry_date, entry_id, flag, status);
 
   if (!entry_id) {
     return res.status(400).json({ message: "Missing required field: entry_id" });
   }
 
-  const sql = `DELETE FROM post_entry WHERE entry_id = ?`;
+  const sql = `UPDATE post_entry SET status=? WHERE entry_id = ? AND flag = ? AND entry_date=? AND loc_id = ?`;
 
-  db.query(sql, [entry_id], (err, results) => {
+  db.query(sql, [status, entry_id, flag, entry_date, loc_id], (err, results) => {
+    console.log(status, entry_id, flag, entry_date, loc_id);
+
     if (err) {
       console.error("Error deleting entry:", err);
       return res.status(500).json({ message: "Error deleting entry", details: err });
@@ -202,8 +235,13 @@ router.delete("/delInOutEntry/:id", (req, res) => {
   });
 });
 
+
+
 //API TO VIEW ALL OUTWARD ENTRY
-router.get("/getAllOutEntry", (req, res) => {
+router.post("/getAllOutEntry", (req, res) => {
+  const { entry_date, loc_id } = req.body;
+  console.log(entry_date, loc_id);
+
   const sql = `SELECT 
                   a.entry_id,
                   a.entry_date,
@@ -224,11 +262,14 @@ router.get("/getAllOutEntry", (req, res) => {
                   firms AS c ON a.firm_id = c.firm_id
                LEFT JOIN 
                   post_type AS e ON a.post_type = e.post_id
-               WHERE a.flag = 'O'
+               WHERE a.flag = 'O' AND
+                  a.entry_date = ? AND
+                  a.status='A' AND
+                  a.loc_id = ?
                ORDER BY 
                    a.entry_id ASC`;
 
-  db.query(sql, (err, results) => {
+  db.query(sql, [entry_date, loc_id], (err, results) => {
     if (err) {
       return res.status(500).json({ message: "Something went wrong", details: err });
     }
@@ -238,28 +279,45 @@ router.get("/getAllOutEntry", (req, res) => {
 
 //Api to create Outward post Entry
 router.post("/newOutEntry", (req, res) => {
-  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name } = req.body;
+  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name, status, loc_id, c_by } = req.body;
+  console.log(entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name, status, loc_id, c_by);
 
-  // console.log("Entry Date:", entry_date, "Post Type:", post_type, "Dept Id:", dept_id, "Firm Id:", firm_id, "City Name:", city_name, "Remark:", remark, "Receipt No:", receipt_no, "Quantity:", qty, "Flag:", flag, "charges:", charges, "fr_machine:", fr_machine, "Party NAme", party_name);
+  const currentDateTime = new Date();
 
-  const sql = `
-    INSERT INTO post_entry 
-    (entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine,party_name) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`;
+  const getMaxEntryIdSql = `
+    SELECT COALESCE(MAX(entry_id), 0) AS max_entry_id
+    FROM post_entry
+    WHERE entry_date = ? AND flag='O' AND status='A' AND loc_id =? `;
 
-  db.query(sql, [entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name], (err, results) => {
+  db.query(getMaxEntryIdSql, [entry_date, loc_id], (err, results) => {
     if (err) {
-      return res.status(500).json({ message: "Something went wrong", err: err });
+      return res.status(500).json({ message: "Error fetching max entry_id", err: err });
     }
-    return res.status(201).json({ message: "Post Entry Created!" });
+
+    const maxEntryId = results[0].max_entry_id;
+    const newEntryId = maxEntryId + 1;
+
+    const insertSql = `
+      INSERT INTO post_entry 
+      (entry_id, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name,status,loc_id,c_by,c_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    db.query(insertSql, [newEntryId, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, flag, charges, fr_machine, party_name, status, loc_id, c_by, currentDateTime], (err, results) => {
+      if (err) {
+        return res.status(500).json({ message: "Something went wrong", err: err });
+      }
+      return res.status(201).json({
+        message: `Post Entry Created!: ${newEntryId}`
+      });
+    });
   });
 });
 
 //Api to update the Outward Entry
 router.put("/updateOutEntry", (req, res) => {
-  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name, entry_id } = req.body;
+  const { entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name, entry_id, flag, loc_id } = req.body;
 
-  // console.log(entry_id, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name);
+  // console.log(entry_id, entry_date, post_type, dept_id, firm_id, city_name, remark, receipt_no, qty, charges, fr_machine, party_name,loc_id);
 
   if (!entry_id) {
     return res.status(400).json({ message: "Missing required field: entry_id" });
@@ -317,8 +375,8 @@ router.put("/updateOutEntry", (req, res) => {
     return res.status(400).json({ message: "No fields to update" });
   }
 
-  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id = ?`;
-  values.push(entry_id);
+  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id = ? AND entry_date = ? AND flag = ? AND loc_id = ? `;
+  values.push(entry_id, entry_date, flag, loc_id);
 
   db.query(sql, values, (err, results) => {
     if (err) {
@@ -331,6 +389,9 @@ router.put("/updateOutEntry", (req, res) => {
     return res.status(200).json({ message: "Entry update successful", details: results });
   });
 });
+
+
+
 
 //Api to create new stamp purchase Entry
 router.post("/newStampEntry", (req, res) => {
@@ -427,18 +488,27 @@ router.put("/updateStampEntry", (req, res) => {
 
 //Api to delete stamp Entry
 router.delete("/delStampEntry/:id", (req, res) => {
-  const { id: stamp_id } = req.body;
+  const { id: stamp_id } = req.params;
+
+  // console.log(stamp_id);
 
   if (!stamp_id) {
     return res.status(400).json({ message: "Missing required field: stamp_id" });
   }
+
   const sql = `DELETE FROM stamp_pur WHERE stamp_id =?`;
 
-  db.query(sql, [stamp_id], (req, res) => {
-    return res.status(500).json({ message: "Error to delete Stamp Entry", details: err })
-  })
-  return res.status(200).json({ message: `Stamp EntryNo ${stamp_id} delete Successsfull`, details: results })
+  db.query(sql, [stamp_id], (err, results) => {
+    if (err) {
+
+      return res.status(500).json({ message: "Error to delete Stamp Entry", details: err })
+    }
+    return res.status(200).json({ message: `Stamp EntryNo ${stamp_id} delete Successsfull`, details: results });
+  });
 })
+
+
+
 
 //Api To create new voucher Entry
 router.post("/newVoucherEntry", (req, res) => {
@@ -536,7 +606,9 @@ router.put("/updateVEntry", (req, res) => {
 
 //Api to Delete Voucher Entry
 router.delete("/delVEntry/:id", (req, res) => {
-  const { id: v_no } = req.body;
+  const { id: v_no } = req.params;
+
+  // console.log(v_no);
 
   if (!v_no) {
     return res.status(400).json({ message: "Missing required field: voucherNo" })
@@ -544,16 +616,22 @@ router.delete("/delVEntry/:id", (req, res) => {
   const sql = `DELETE FROM voucher_entry WHERE v_no =?`;
 
   db.query(sql, [v_no], (err, results) => {
-    return res.status(500).json({ message: "Error To  Delete Entry", details: err });
+    if (err) {
+
+      return res.status(500).json({ message: "Error To  Delete Entry", details: err });
+    }
+    return res.status(200).json({ message: `Voucher EntryNo ${v_no} Delete Successfull`, details: results });
   });
-  return res.status(200).json({ message: `Voucher EntryNo ${v_no} Delete Successfull` });
 });
+
+
+
 
 //Api to View all OUtward details entry
 router.post("/getAllOutwardDetails", (req, res) => {
-  const { from_date, to_date, firm_id } = req.body;
+  const { from_date, to_date, firm_id, loc_id } = req.body;
 
-  // console.log(from_date, to_date, firm_id);
+  console.log(from_date, to_date, firm_id, loc_id);
 
   if (!from_date || !to_date) {
     return res.status(400).json({ message: "Missing required query parameters: from_date and to_date" });
@@ -561,33 +639,39 @@ router.post("/getAllOutwardDetails", (req, res) => {
 
   let sql = `
     SELECT 
-      a.entry_id, 
-      a.entry_date, 
-      e.post_name AS post_type, 
-      c.firm_name, 
-      b.dept_name, 
-      a.party_name, 
-      a.city_name, 
-      a.remark, 
-      a.qty, 
-      a.fr_machine, 
-      a.charges, 
-      a.rec_no, 
-      a.rec_date,
-      a.ret 
+        a.entry_id,
+        a.entry_date,
+        e.post_name AS post_type,
+        a.post_type AS post_id,
+        c.firm_name,
+        b.dept_name,
+        a.party_name,
+        a.city_name,
+        a.remark,
+        a.qty,
+        a.fr_machine,
+        a.charges,
+        a.rec_no,
+        a.rec_date,
+        a.ret ,
+        a.flag,
+        a.receipt_no
     FROM 
-      post_entry AS a 
-      JOIN dept AS b ON a.dept_id = b.dept_id 
-      JOIN firms AS c ON a.firm_id = c.firm_id 
-      JOIN post_type AS e ON a.post_type = e.post_id 
+     post_entry AS a 
+     LEFT JOIN dept AS b ON a.dept_id = b.dept_id 
+     LEFT JOIN firms AS c ON a.firm_id = c.firm_id 
+     LEFT JOIN post_type AS e ON a.post_type = e.post_id 
     WHERE 
-      a.entry_date BETWEEN ? AND ? 
-      AND a.flag = 'O' `;
+      a.entry_date BETWEEN ? AND ?  
+      AND a.status='A' 
+      AND a.flag='O' 
+      AND a.loc_id= ?
+      `;
 
-  const params = [from_date, to_date];
+  const params = [from_date, to_date, loc_id];
 
   if (firm_id !== '0') {
-    sql += ` AND a.firm_id = ?`;
+    sql += ` AND a.firm_id = ? `;
     params.push(firm_id);
   }
 
@@ -602,9 +686,7 @@ router.post("/getAllOutwardDetails", (req, res) => {
 
 //Api to update outward Details entry
 router.put("/updateOutwardDetails", (req, res) => {
-  const { data } = req.body;
-
-  // console.log(data);
+  const { data, loc_id } = req.body;
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     return res.status(400).json({ message: "Invalid data provided" });
@@ -613,85 +695,44 @@ router.put("/updateOutwardDetails", (req, res) => {
   const updates = data.map(item => ({
     entry_id: item.entry_id,
     charges: item.charges,
-    rec_no: item.rec_no
+    rec_no: item.rec_no,
+    post_type: item.post_id,
+    entry_date: item.entry_date,
+    flag: item.flag,
+    remark: item.remark
   }));
 
   let errors = [];
   let successfulUpdates = 0;
 
   updates.forEach((update, index) => {
-    const sql = `UPDATE post_entry SET charges = ?, rec_no = ? WHERE entry_id = ?`;
+    const sql = `UPDATE post_entry SET post_type = ?, charges = ?, rec_no = ?, remark = ? WHERE entry_id = ? AND entry_date = ? AND flag = ? AND loc_id = ?`;
 
-    db.query(sql, [update.charges, update.rec_no, update.entry_id], (err, results) => {
-      if (err) {
-        errors.push({ update, err });
-      } else {
-        successfulUpdates++;
-      }
 
-      // Send response after all queries are processed
-      if (index === updates.length - 1) {
-        if (errors.length > 0) {
-          console.error("Errors updating entries:", errors);
-          return res.status(500).json({ message: "Error updating entries", details: errors });
+    db.query(sql, [update.post_type, update.charges, update.rec_no, update.remark, update.entry_id, update.entry_date, update.flag,
+      loc_id], (err, results) => {
+        if (err) {
+          errors.push({ update, err });
+          console.error(`Error executing query for ${JSON.stringify(update)}: ${err}`);
+        } else if (results.affectedRows > 0) {
+          successfulUpdates++;
         } else {
-          return res.status(200).json({
-            message: "Entries updated successfully", details: successfulUpdates
-          });
+          errors.push({ update, err: "No rows updated" });
+          console.warn(`No rows updated for ${JSON.stringify(update)}`);
         }
-      }
-    });
+
+        // Check if all updates are done
+        if (index === updates.length - 1) {
+          if (errors.length > 0) {
+            return res.status(500).json({ message: "Error updating entries", details: errors });
+          } else {
+            return res.status(200).json({ message: "Entries updated successfully", successfulUpdates });
+          }
+        }
+      });
   });
 });
 
-//Api to update the outward details
-router.put("/updateEntry", (req, res) => {
-  const { charges, ret, rec_no, rec_date, entry_id } = req.body;
-
-  // console.log(charges, ret, rec_no, rec_date, entry_id);
-
-  if (!entry_id) {
-    return res.status(400).json({ message: "Missing required field: entry_id" });
-  }
-
-  const fields = [];
-  const values = [];
-
-  if (charges) {
-    fields.push("charges=?");
-    values.push(charges);
-  }
-  if (ret) {
-    fields.push("ret=?");
-    values.push(ret);
-  }
-  if (rec_no) {
-    fields.push("rec_no=?");
-    values.push(rec_no);
-  }
-  if (rec_date) {
-    fields.push("rec_date=?");
-    values.push(rec_date);
-  }
-
-  if (fields.length === 0) {
-    return res.status(400).json({ message: "No fields to update" });
-  }
-
-  const sql = `UPDATE post_entry SET ${fields.join(", ")} WHERE entry_id=?`;
-  values.push(entry_id);
-
-  db.query(sql, values, (err, results) => {
-    if (err) {
-      console.error("Error updating entry:", err);
-      return res.status(500).json({ message: "Error updating entry", details: err });
-    }
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ message: "Entry not found" });
-    }
-    return res.status(200).json({ message: "Entry updated successfully", details: results });
-  });
-});
 
 //Api to view all Type/Department/Firm
 router.post("/viewGroup", (req, res) => {
@@ -705,13 +746,13 @@ router.post("/viewGroup", (req, res) => {
   let sql;
   switch (Group) {
     case 'D':
-      sql = `SELECT dept_id AS id ,dept_name AS name FROM dept`;
+      sql = `SELECT dept_id AS id, dept_name AS name FROM dept WHERE status='A'`;
       break;
     case 'F':
-      sql = `SELECT firm_id AS id ,firm_name AS name FROM firms`;
+      sql = `SELECT firm_id AS id, firm_name AS name FROM firms WHERE status='A'`;
       break;
     case 'T':
-      sql = `SELECT post_id AS id,post_name AS name  FROM post_type`;
+      sql = `SELECT post_id AS id, post_name AS name  FROM post_type WHERE status='A'`;
       break;
     default:
       return res.status(400).json({ message: "Invalid Group parameter" });
@@ -727,7 +768,7 @@ router.post("/viewGroup", (req, res) => {
 
 //Api to create New Type/Department/Firm
 router.post("/newGroup", (req, res) => {
-  const { Group, name } = req.body;
+  const { Group, name, status } = req.body;
   // console.log(Group, name);
 
   if (!Group || !name) {
@@ -736,24 +777,92 @@ router.post("/newGroup", (req, res) => {
 
   let sql;
   switch (Group) {
+
     case 'D':
-      sql = `INSERT INTO dept (dept_name) VALUES (?)`;
+      sql = `INSERT INTO dept(dept_name,status) VALUES(?,?)`;
       break;
     case 'F':
-      sql = `INSERT INTO firms (firm_name) VALUES (?)`;
+      sql = `INSERT INTO firms(firm_name,status) VALUES(?,?)`;
       break;
     case 'T':
-      sql = `INSERT INTO post_type (post_name) VALUES (?)`;
+      sql = `INSERT INTO post_type(post_name,status) VALUES(?,?)`;
       break;
     default:
       return res.status(400).json({ message: "Invalid Group parameter" });
   }
-  db.query(sql, [name], (err, results) => {
+  db.query(sql, [name, status], (err, results) => {
     if (err) {
       console.error("Error inserting group:", err);
       return res.status(500).json({ message: "Error inserting group", details: err });
     }
     return res.status(200).json({ message: "Group created successfully!", details: results });
+  });
+});
+
+//Api to Edit Type/Department/Firm
+router.put("/editGroup", (req, res) => {
+  const { Group, id, name } = req.body;
+
+  console.log(Group, id, name);
+
+  if (!Group || !id || !name) {
+    return res.status(400).json({ message: "Group, id, and name parameters are required" });
+  }
+
+  let sql;
+  switch (Group) {
+    case 'D':
+      sql = `UPDATE dept SET dept_name=? WHERE dept_id=?`;
+      break;
+    case 'F':
+      sql = `UPDATE firms SET firm_name=? WHERE firm_id=?`;
+      break;
+    case 'T':
+      sql = `UPDATE post_type SET post_name=? WHERE post_id=?`;
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid Group parameter" });
+  }
+
+  db.query(sql, [name, id], (err, results) => {
+    if (err) {
+      console.error("Error updating group:", err);
+      return res.status(500).json({ message: "Error updating group", details: err });
+    }
+    return res.status(200).json({ message: "Group updated successfully!", details: results });
+  });
+});
+
+router.put("/delGroup", (req, res) => {
+  const { Group, id, status } = req.body;
+
+  console.log(Group, id, status);
+
+  if (!Group || !id || !status) {
+    return res.status(400).json({ message: "Group, id, and name parameters are required" });
+  }
+
+  let sql;
+  switch (Group) {
+    case 'D':
+      sql = `UPDATE dept SET status=? WHERE dept_id=?`;
+      break;
+    case 'F':
+      sql = `UPDATE firms SET status=? WHERE firm_id=?`;
+      break;
+    case 'T':
+      sql = `UPDATE post_type SET status=? WHERE post_id=?`;
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid Group parameter" });
+  }
+
+  db.query(sql, [status, id], (err, results) => {
+    if (err) {
+      console.error("Error updating group:", err);
+      return res.status(500).json({ message: "Error Deleting group", details: err });
+    }
+    return res.status(200).json({ message: "Group deleted successfully!", details: results });
   });
 });
 

@@ -18,7 +18,7 @@
 // export default db;
 
 import mysql from 'mysql';
-   
+
 const db = mysql.createPool({
   connectionLimit: 10,
   host: 'localhost',
@@ -52,6 +52,7 @@ function handleDisconnect() {
     }
   });
 }
+
 handleDisconnect();
 
 // Optional: Periodic keep-alive query to prevent idle timeout
@@ -61,6 +62,6 @@ setInterval(() => {
       console.error('Keep-alive query error:', err);
     }
   });
-}, 60000);// Send a query every 60 seconds
+}, 60000); // Send a query every 60 seconds
 
 export default db;
